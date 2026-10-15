@@ -36,6 +36,7 @@
   --faint:#565F67;
   --danger:#E5674B;
   --ice:#8EC5E8;
+  --sick:#B9A3F0;
 
   --r-lg:18px; --r-md:13px; --r-sm:9px;
   --pad:16px;
@@ -284,7 +285,7 @@ input,select{font:inherit;color:inherit}
 .grab{width:38px;height:4px;border-radius:100px;background:var(--hair-strong);margin:6px auto 14px}
 .sheet h2{margin:0 0 3px;font-size:17px;font-weight:800;letter-spacing:-.01em}
 .sheet p.lede{margin:0 0 16px;font-size:12.5px;color:var(--muted)}
-.sheet input[type=datetime-local]{
+.sheet input[type=datetime-local],.sheet input[type=date]{
   width:100%;background:var(--panel-2);border:1px solid var(--hair);border-radius:var(--r-sm);
   padding:11px;font-size:16px;
 }
@@ -395,6 +396,21 @@ input,select{font:inherit;color:inherit}
 .days button{padding:10px 0;border-radius:var(--r-sm);border:1px solid var(--hair);font-size:11.5px;font-weight:700;color:var(--muted)}
 .days button.on{background:rgba(51,217,140,.14);border-color:rgba(51,217,140,.45);color:var(--money)}
 
+/* leave days */
+.kinds{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:16px}
+.kinds button{padding:10px 0;border-radius:var(--r-sm);border:1px solid var(--hair);font-size:12px;font-weight:700;color:var(--muted)}
+.kinds button.on[data-kind="work"]{background:rgba(51,217,140,.14);border-color:rgba(51,217,140,.45);color:var(--money)}
+.kinds button.on[data-kind="sick"]{background:rgba(185,163,240,.16);border-color:rgba(185,163,240,.5);color:var(--sick)}
+.kinds button.on[data-kind="vacation"]{background:rgba(142,197,232,.16);border-color:rgba(142,197,232,.5);color:var(--ice)}
+.badge{display:inline-block;font:700 9.5px "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;padding:3px 7px;border-radius:100px}
+.badge.sick{background:rgba(185,163,240,.16);color:var(--sick)}
+.badge.vacation{background:rgba(142,197,232,.16);color:var(--ice)}
+.wd.leave-sick i{background:var(--sick)}
+.wd.leave-vacation i{background:var(--ice)}
+.lg.leave{background:var(--ice)}
+.hc.leave-sick{background:rgba(185,163,240,.45);color:var(--text)}
+.hc.leave-vacation{background:rgba(142,197,232,.45);color:var(--text)}
+
 /* ---------- wide screens: the Mac browser ---------- */
 @media (min-width:900px){
   .app{max-width:1140px;padding-left:28px;padding-right:28px}
@@ -462,6 +478,7 @@ input,select{font:inherit;color:inherit}
         <button class="chip minus" data-add="-15">−15m</button>
       </div>
       <div style="font-size:10.5px;color:var(--faint);margin-top:9px" id="catchHint"></div>
+      <button class="link" id="addLeaveNow" style="margin-top:10px;font-size:12px">Off sick or on vacation? Log a paid day →</button>
     </div>
 
     <div class="card">
@@ -483,6 +500,7 @@ input,select{font:inherit;color:inherit}
           <span><i class="lg met"></i>goal</span>
           <span><i class="lg frozen"></i>freeze</span>
           <span><i class="lg off"></i>off</span>
+          <span><i class="lg leave"></i>leave</span>
         </div>
       </div>
     </div>
@@ -583,6 +601,7 @@ input,select{font:inherit;color:inherit}
     </div>
     <div class="row" style="margin-top:12px;gap:8px">
       <button class="ghost" id="addManual">+ Add time manually</button>
+      <button class="ghost" id="addLeave">+ Sick / vacation day</button>
       <button class="ghost" id="copyData">Copy backup</button>
     </div>
     <div id="logList"></div>
@@ -715,6 +734,27 @@ input,select{font:inherit;color:inherit}
   <h2 id="shTitle">Add time</h2>
   <p class="lede" id="shLede">For work you did before you hit start.</p>
 
+  <div class="kinds" id="shKinds">
+    <button data-kind="work" class="on">Work</button>
+    <button data-kind="sick">Sick leave</button>
+    <button data-kind="vacation">Vacation</button>
+  </div>
+
+  <div id="shLeave" class="hidden">
+    <div class="lab" id="shDateLab">Which day?</div>
+    <input type="date" id="shDate" style="margin-top:8px">
+    <div class="chips" style="margin-top:8px">
+      <button class="chip" data-day="-1">Yesterday</button>
+      <button class="chip" data-day="0">Today</button>
+      <button class="chip" data-day="1">Tomorrow</button>
+    </div>
+    <div id="shDaysWrap">
+      <div class="lab" style="margin-top:16px">How many work days?</div>
+      <div class="dur"><div><input type="number" id="shDays" inputmode="numeric" min="1" max="30" value="1"><span>days</span></div></div>
+    </div>
+  </div>
+
+  <div id="shWork">
   <div class="lab">When did it start?</div>
   <input type="datetime-local" id="shStart" style="margin-top:8px">
   <div class="chips" style="margin-top:8px">
@@ -737,13 +777,14 @@ input,select{font:inherit;color:inherit}
     <button class="chip" data-dur="480">8h</button>
   </div>
 
+  <input class="note-in" id="shNote" type="text" placeholder="What were you working on?">
+  </div>
+
   <div class="worth">
     <b id="shUsd">$6.94</b>
     <span id="shEgp">E£ 333.00</span>
     <small id="shMeta"></small>
   </div>
-
-  <input class="note-in" id="shNote" type="text" placeholder="What were you working on?">
 
   <div class="actions">
     <button class="ghost danger hidden" id="shDelete">Delete</button>
@@ -1001,7 +1042,9 @@ function toDocument() {
       rate: s.rate,
       egpRate: s.egpRate,
       note: s.note || "",
-      mtime: s.mtime || s.endedAt
+      mtime: s.mtime || s.endedAt,
+      ...(s.kind ? { kind: s.kind } : {}),
+      ...(s.manual ? { manual: true } : {})
     })),
     deletedIds: S.deletedIds || []
   };
@@ -1215,6 +1258,22 @@ const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct
 const MONTH = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const WDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+/** A paid leave day counts as this many hours of work. */
+const LEAVE_HOURS = 8;
+const LEAVE_NOTE = { sick: "Sick leave", vacation: "Vacation" };
+
+/**
+ * "sick", "vacation" or null. Falls back to the note so a leave day still
+ * reads as leave after passing through an older app version that drops `kind`.
+ */
+function leaveKind(s) {
+  if (!s) return null;
+  if (s.kind === "sick" || s.kind === "vacation") return s.kind;
+  if (s.note === LEAVE_NOTE.sick) return "sick";
+  if (s.note === LEAVE_NOTE.vacation) return "vacation";
+  return null;
+}
+
 function dayKey(d) {
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 }
@@ -1237,7 +1296,8 @@ function computeStreak(map, today, workDays, goalSec) {
   const todayRec = map.get(todayK);
   const out = {
     current: 0, best: 0,
-    todayMet: !!todayRec && goalSec > 0 && todayRec.sec >= goalSec,
+    todayMet: !!todayRec && goalSec > 0 && (!!todayRec.leave || todayRec.sec >= goalSec),
+    todayLeave: todayRec ? todayRec.leave || null : null,
     todayWork: isWork(today),
     todaySec: todayRec ? todayRec.sec : 0,
     usedThisWeek: false, frozenThisWeekKey: null,
@@ -1255,7 +1315,7 @@ function computeStreak(map, today, workDays, goalSec) {
     const w = startOfWeek(d).getTime();
     if (w !== wk) { wk = w; used = false; usedKey = null; }
     const k = dayKey(d), rec = map.get(k);
-    const met = !!rec && rec.sec >= goalSec;
+    const met = !!rec && (!!rec.leave || rec.sec >= goalSec);
     if (met) { run++; if (run > best) best = run; continue; }
     if (!isWork(d)) continue;
     if (k === todayK) continue;
@@ -1280,21 +1340,25 @@ function projectMonth(map, today, workDays, firstK) {
   const first = firstK ? parseKey(firstK) : today;
   const from = first > mStart ? first : mStart;
 
-  let pastUSD = 0, pastWork = 0, futureWork = 0;
+  let pastUSD = 0, pastWork = 0, futureWork = 0, knownFuture = 0;
   for (let d = new Date(mStart); d < today; d = addDays(d, 1)) {
     const r = map.get(dayKey(d));
     if (r) pastUSD += r.usd;
     if (d >= from && isWork(d)) pastWork++;
   }
-  for (let d = addDays(today, 1); d < mEnd; d = addDays(d, 1)) if (isWork(d)) futureWork++;
+  for (let d = addDays(today, 1); d < mEnd; d = addDays(d, 1)) {
+    const r = map.get(dayKey(d));
+    if (r && r.leave) knownFuture += r.usd;      // booked leave: exact pay, not an average day
+    else if (isWork(d)) futureWork++;
+  }
 
   const tr = map.get(dayKey(today));
   const todayUSD = tr ? tr.usd : 0;
   if (pastWork === 0) return { projected: null, avg: 0, pastWork, futureWork };
 
   const avg = pastUSD / pastWork;
-  const todayPart = isWork(today) ? Math.max(todayUSD, avg) : todayUSD;
-  return { projected: pastUSD + todayPart + avg * futureWork, avg, pastWork, futureWork };
+  const todayPart = isWork(today) && !(tr && tr.leave) ? Math.max(todayUSD, avg) : todayUSD;
+  return { projected: pastUSD + todayPart + knownFuture + avg * futureWork, avg, pastWork, futureWork };
 }
 
 /** Best day / week / session. Hand-added sessions don't compete for "longest session". */
@@ -1302,8 +1366,10 @@ function computeRecords(map, sessions, todayK, liveSec) {
   let bestDay = null, prevBestDay = null;
   const weeks = new Map();
   for (const [k, r] of map) {
-    if (!bestDay || r.usd > bestDay.usd) bestDay = { k, usd: r.usd, sec: r.sec };
-    if (k !== todayK && (!prevBestDay || r.usd > prevBestDay.usd)) prevBestDay = { k, usd: r.usd, sec: r.sec };
+    if (!r.leave) {   // a paid day off isn't a performance
+      if (!bestDay || r.usd > bestDay.usd) bestDay = { k, usd: r.usd, sec: r.sec };
+      if (k !== todayK && (!prevBestDay || r.usd > prevBestDay.usd)) prevBestDay = { k, usd: r.usd, sec: r.sec };
+    }
     const wk = dayKey(startOfWeek(parseKey(k)));
     const w = weeks.get(wk) || { usd: 0, sec: 0 };
     w.usd += r.usd; w.sec += r.sec;
@@ -1314,7 +1380,7 @@ function computeRecords(map, sessions, todayK, liveSec) {
 
   let prevLongest = null;
   for (const s of sessions) {
-    if (s.manual || s.note === "Added manually") continue;
+    if (s.manual || s.note === "Added manually" || leaveKind(s)) continue;
     if (!prevLongest || s.duration > prevLongest.sec) prevLongest = { sec: s.duration, at: s.startedAt };
   }
   let longest = prevLongest;
@@ -1323,7 +1389,7 @@ function computeRecords(map, sessions, todayK, liveSec) {
   const tr = map.get(todayK);
   return {
     bestDay, prevBestDay, bestWeek, longest, prevLongest,
-    newBestDay: !!(tr && prevBestDay && prevBestDay.usd > 0 && tr.usd > prevBestDay.usd),
+    newBestDay: !!(tr && !tr.leave && prevBestDay && prevBestDay.usd > 0 && tr.usd > prevBestDay.usd),
     newLongest: !!(liveSec > 0 && prevLongest && prevLongest.sec > 0 && liveSec > prevLongest.sec)
   };
 }
@@ -1332,9 +1398,20 @@ function computeRecords(map, sessions, todayK, liveSec) {
 /** Work days left this month, counting today if it's a work day. Days off don't count. */
 function workDaysLeft() {
   const today = startOfDay(new Date()), end = endOfMonth(today);
+  const leave = leaveDays();
   let n = 0;
-  for (let d = today; d < end; d = addDays(d, 1)) if (isWorkDay(d)) n++;
+  for (let d = today; d < end; d = addDays(d, 1)) if (isWorkDay(d) && !leave.has(dayKey(d))) n++;
   return n;
+}
+
+/** dayKey -> "sick" | "vacation" for every booked leave day. */
+function leaveDays(exceptId) {
+  const out = new Map();
+  for (const x of S.sessions) {
+    const k = leaveKind(x);
+    if (k && x.id !== exceptId) out.set(dayKey(new Date(x.endedAt)), k);
+  }
+  return out;
 }
 
 function isWorkDay(d) {
@@ -1345,12 +1422,13 @@ function isWorkDay(d) {
 /** Seconds and dollars per calendar day — same bucketing as totals(). */
 function buildDayMap() {
   const map = new Map();
-  const add = (d, sec, u) => {
-    const k = dayKey(d), r = map.get(k) || { sec: 0, usd: 0 };
+  const add = (d, sec, u, leave) => {
+    const k = dayKey(d), r = map.get(k) || { sec: 0, usd: 0, leave: null };
     r.sec += sec; r.usd += u;
+    if (leave) r.leave = leave;
     map.set(k, r);
   };
-  for (const s of S.sessions) add(new Date(s.endedAt), s.duration, (s.duration / 3600) * s.rate);
+  for (const s of S.sessions) add(new Date(s.endedAt), s.duration, (s.duration / 3600) * s.rate, leaveKind(s));
   if (isActive() && S.timer.sessionStart) add(new Date(S.timer.sessionStart), elapsed(), earnedUSD());
   return map;
 }
@@ -1449,6 +1527,9 @@ const $ = (id) => document.getElementById(id);
 
 function nudgeText() {
   const e = elapsed(), t = todayTotals();
+  const todayLeave = leaveDays().get(dayKey(startOfDay(new Date())));
+  if (!isActive() && todayLeave === "sick") return "Sick leave today — rest up. It's paid in full.";
+  if (!isActive() && todayLeave === "vacation") return "Vacation day — enjoy it. It's paid in full.";
   if (!isActive()) {
     if (t.sec === 0) return "Hit start. The counter does the rest.";
     if (t.usd >= dailyGoalUSD()) return "Daily goal cleared. Anything now is extra.";
@@ -1574,10 +1655,13 @@ function renderLog(w, m) {
     }
 
     for (const s of items) {
-      const su = (s.duration / 3600) * s.rate;
+      const su = (s.duration / 3600) * s.rate, lk = leaveKind(s);
+      const label = lk
+        ? '<span class="badge ' + lk + '">' + (lk === "sick" ? "Sick leave" : "Vacation") + "</span>"
+        : "<span class=\"when\">" + timeLabel(s.startedAt) + " – " + timeLabel(s.endedAt) + "</span>" +
+          (s.note ? '<span class="note">' + esc(s.note) + "</span>" : "");
       html += '<button class="sess" data-edit="' + s.id + '">' +
-        "<span><span class=\"when\">" + timeLabel(s.startedAt) + " – " + timeLabel(s.endedAt) + "</span>" +
-        (s.note ? '<span class="note">' + esc(s.note) + "</span>" : "") + "</span>" +
+        "<span>" + label + "</span>" +
         '<span class="dur">' + compact(s.duration) + "</span>" +
         '<span class="amt"><b>' + usd(su) + "</b>" +
         (S.showEGP ? "<span>" + egp(su * s.egpRate) + "</span>" : "") +
@@ -1610,7 +1694,8 @@ function renderStreak(st) {
   }
 
   let note;
-  if (k.todayMet) note = k.todayWork ? "Today's in. Streak at " + k.current + "." : "Worked your day off — it counts too.";
+  if (k.todayLeave) note = (k.todayLeave === "sick" ? "Sick leave" : "Vacation") + " today — counts as a full day. Streak at " + k.current + ".";
+  else if (k.todayMet) note = k.todayWork ? "Today's in. Streak at " + k.current + "." : "Worked your day off — it counts too.";
   else if (!k.todayWork) note = "Day off — your streak is safe.";
   else if (k.current > 0) note = "Log " + compact(Math.max(goalSec - k.todaySec, 0)) + " more today to make it " + (k.current + 1) + ".";
   else note = "Hit " + hrs(S.dailyGoalHours) + " today to start a streak.";
@@ -1622,7 +1707,8 @@ function renderStreak(st) {
     const d = addDays(ws, i), key = dayKey(d), rec = st.map.get(key);
     const met = !!rec && goalSec > 0 && rec.sec >= goalSec;
     let cls;
-    if (d > today) cls = "future";
+    if (rec && rec.leave) cls = "leave-" + rec.leave;
+    else if (d > today) cls = "future";
     else if (met) cls = "met";
     else if (k.frozen.has(key)) cls = "frozen";
     else if (!isWorkDay(d)) cls = "off";
@@ -1664,15 +1750,17 @@ function renderHeatmap(st) {
   $("hmTitle").textContent = MONTH[hmMonth.getMonth()] + " " + hmMonth.getFullYear();
   $("hmNext").disabled = hmMonth.getTime() >= startOfMonth(today).getTime();
 
-  let html = "", goalDays = 0, monthUSD = 0;
+  let html = "", goalDays = 0, monthUSD = 0, leaveCount = 0;
   for (let i = 0, lead = (hmMonth.getDay() + 1) % 7; i < lead; i++) html += '<i class="hc blank"></i>';
   for (let d = new Date(hmMonth); d < end; d = addDays(d, 1)) {
     const k = dayKey(d), rec = st.map.get(k), sec = rec ? rec.sec : 0;
     const ratio = goalSec > 0 ? sec / goalSec : 0;
     if (rec) monthUSD += rec.usd;
-    if (ratio >= 1) goalDays++;
+    if (rec && rec.leave) leaveCount++;
+    else if (ratio >= 1) goalDays++;
     let cls = "hc";
-    if (d > today) cls += " future";
+    if (rec && rec.leave) cls += " leave-" + rec.leave;
+    else if (d > today) cls += " future";
     else if (sec <= 0) cls += isWorkDay(d) ? " lvl0" : " off";
     else cls += ratio >= 1 ? " lvl4" : ratio >= 0.6 ? " lvl3" : ratio >= 0.25 ? " lvl2" : " lvl1";
     if (st.streak.frozen.has(k)) cls += " frozen";
@@ -1681,13 +1769,18 @@ function renderHeatmap(st) {
     html += '<button class="' + cls + '" data-k="' + k + '" aria-label="' + shortDate(d) + '">' + d.getDate() + "</button>";
   }
   $("hm").innerHTML = html;
-  $("hmSum").textContent = goalDays + " goal day" + (goalDays === 1 ? "" : "s") + " · " + usd(monthUSD);
+  $("hmSum").textContent = goalDays + " goal day" + (goalDays === 1 ? "" : "s") +
+    (leaveCount ? " · " + leaveCount + " leave" : "") + " · " + usd(monthUSD);
 
   const det = $("hmDetail");
   if (!hmSel) { det.textContent = "Tap a day for details."; return; }
   const d = parseKey(hmSel), rec = st.map.get(hmSel);
   let text = "<b>" + shortDate(d) + "</b> · ";
-  if (d > today) text += "still ahead";
+  if (rec && rec.leave) {
+    text += (rec.leave === "sick" ? "Sick leave" : "Vacation") + " · " + compact(rec.sec) + " paid · " + usd(rec.usd);
+    if (S.showEGP) text += " · " + egp(toEGP(rec.usd));
+  }
+  else if (d > today) text += "still ahead";
   else if (!rec) text += isWorkDay(d) ? "nothing tracked" : "day off";
   else {
     text += compact(rec.sec) + " · " + usd(rec.usd);
@@ -1773,6 +1866,48 @@ function renderSetup() {
    The add / edit sheet
    ============================================================ */
 let editingId = null;
+let sheetKind = "work";
+
+function dateOnly(d) {
+  const p = (n) => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+}
+
+/** Work / Sick leave / Vacation — switches which fields the sheet shows. */
+function setKind(kind) {
+  sheetKind = kind;
+  document.querySelectorAll("#shKinds [data-kind]").forEach((b) =>
+    b.classList.toggle("on", b.getAttribute("data-kind") === kind));
+  const leave = kind !== "work";
+  $("shWork").classList.toggle("hidden", leave);
+  $("shLeave").classList.toggle("hidden", !leave);
+  $("shDaysWrap").classList.toggle("hidden", !!editingId);
+  $("shDateLab").textContent = editingId ? "Which day?" : "First day";
+  if (!editingId) {
+    $("shTitle").textContent = leave ? (kind === "sick" ? "Sick leave" : "Vacation") : "Add time";
+    $("shLede").textContent = leave
+      ? "Paid like a normal day: " + LEAVE_HOURS + "h of work. Days off are skipped."
+      : "For work you did before you hit start.";
+    $("shSave").textContent = leave ? "Add leave" : "Add time";
+  }
+  sheetWorth();
+}
+
+/** The days a leave entry would create: work days only, never a day already on leave. */
+function leavePlan() {
+  const v = $("shDate").value;
+  if (!v) return [];
+  const p = v.split("-").map(Number);
+  let d = new Date(p[0], p[1] - 1, p[2]);
+  if (editingId) return [d];
+  const want = Math.min(Math.max(parseInt($("shDays").value, 10) || 1, 1), 30);
+  const taken = leaveDays();
+  const out = [];
+  for (let i = 0; i < 90 && out.length < want; i++, d = addDays(d, 1)) {
+    if (isWorkDay(d) && !taken.has(dayKey(d))) out.push(new Date(d));
+  }
+  return out;
+}
 
 function localISO(d) {
   const p = (n) => String(n).padStart(2, "0");
@@ -1780,7 +1915,7 @@ function localISO(d) {
     "T" + p(d.getHours()) + ":" + p(d.getMinutes());
 }
 
-function openSheet(id) {
+function openSheet(id, kind) {
   editingId = id || null;
   const s = id ? S.sessions.find((x) => x.id === id) : null;
 
@@ -1793,15 +1928,18 @@ function openSheet(id) {
     $("shStart").value = localISO(new Date(s.startedAt));
     $("shH").value = Math.floor(s.duration / 3600);
     $("shM").value = Math.round((s.duration % 3600) / 60);
-    $("shNote").value = s.note || "";
+    $("shNote").value = leaveKind(s) ? "" : (s.note || "");
+    $("shDate").value = dateOnly(new Date(s.startedAt));
   } else {
     $("shStart").value = localISO(new Date(Date.now() - 3600000));
     $("shH").value = 1;
     $("shM").value = 0;
     $("shNote").value = "";
+    $("shDate").value = dateOnly(new Date());
+    $("shDays").value = 1;
   }
 
-  sheetWorth();
+  setKind(s ? (leaveKind(s) || "work") : (kind || "work"));
   $("scrim").classList.add("open");
   $("sheet").classList.add("open");
 }
@@ -1817,6 +1955,19 @@ const sheetDuration = () =>
   (Math.max(parseInt($("shM").value, 10) || 0, 0) * 60);
 
 function sheetWorth() {
+  if (sheetKind !== "work") {
+    const plan = leavePlan(), u = plan.length * LEAVE_HOURS * hourly();
+    $("shUsd").textContent = usd(u);
+    $("shEgp").textContent = egp(toEGP(u));
+    $("shEgp").classList.toggle("hidden", !S.showEGP);
+    const asked = editingId ? 1 : Math.min(Math.max(parseInt($("shDays").value, 10) || 1, 1), 30);
+    let meta = plan.length + " day" + (plan.length === 1 ? "" : "s") + " × " + LEAVE_HOURS + "h";
+    if (plan.length) meta += " · " + shortDate(plan[0]) + (plan.length > 1 ? " → " + shortDate(plan[plan.length - 1]) : "");
+    if (!editingId && plan.length < asked) meta += " · some days already on leave";
+    $("shMeta").textContent = meta;
+    $("shSave").style.opacity = plan.length ? "1" : ".45";
+    return;
+  }
   const dur = sheetDuration(), u = (dur / 3600) * hourly();
   $("shUsd").textContent = usd(u);
   $("shEgp").textContent = egp(toEGP(u));
@@ -1829,6 +1980,7 @@ function sheetWorth() {
 }
 
 function saveSheet() {
+  if (sheetKind !== "work") return saveLeave();
   const dur = sheetDuration();
   if (dur <= 0 || !$("shStart").value) return;
   const began = new Date($("shStart").value);
@@ -1841,6 +1993,7 @@ function saveSheet() {
       s.endedAt = new Date(began.getTime() + dur * 1000).toISOString();
       s.duration = dur;
       s.note = note;
+      delete s.kind;                 // a leave day switched back to work
       s.mtime = new Date().toISOString();
     }
   } else {
@@ -1855,6 +2008,37 @@ function saveSheet() {
       manual: true,
       mtime: new Date().toISOString()
     });
+  }
+  saveNow(); closeSheet(); render();
+}
+
+/** A leave day is a fixed 8h paid block, 9:00–17:00 on that date. */
+function saveLeave() {
+  const plan = leavePlan();
+  if (!plan.length) return;
+  const now = new Date().toISOString();
+  const block = (d) => {
+    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 0, 0);
+    return { startedAt: start.toISOString(), endedAt: new Date(start.getTime() + LEAVE_HOURS * 3600000).toISOString() };
+  };
+
+  if (editingId) {
+    const s = S.sessions.find((x) => x.id === editingId);
+    if (s) {
+      const taken = leaveDays(editingId);
+      if (taken.has(dayKey(plan[0]))) { toast("That day is already on leave."); return; }
+      Object.assign(s, block(plan[0]), {
+        duration: LEAVE_HOURS * 3600, kind: sheetKind, note: LEAVE_NOTE[sheetKind], manual: true, mtime: now
+      });
+    }
+  } else {
+    for (const d of plan) {
+      S.sessions.push(Object.assign({ id: uid() }, block(d), {
+        duration: LEAVE_HOURS * 3600, rate: hourly(), egpRate: S.egpRate,
+        note: LEAVE_NOTE[sheetKind], kind: sheetKind, manual: true, mtime: now
+      }));
+    }
+    toast((plan.length === 1 ? "1 day" : plan.length + " days") + " of " + LEAVE_NOTE[sheetKind].toLowerCase() + " added.");
   }
   saveNow(); closeSheet(); render();
 }
@@ -1986,6 +2170,18 @@ $("goBtn").addEventListener("click", toggle);
 $("stopBtn").addEventListener("click", stopAndSave);
 $("addPast").addEventListener("click", () => openSheet(null));
 $("addManual").addEventListener("click", () => openSheet(null));
+$("addLeave").addEventListener("click", () => openSheet(null, "sick"));
+$("addLeaveNow").addEventListener("click", () => openSheet(null, "sick"));
+document.querySelectorAll("#shKinds [data-kind]").forEach((b) => {
+  b.addEventListener("click", () => setKind(b.getAttribute("data-kind")));
+});
+["shDate", "shDays"].forEach((id) => $(id).addEventListener("input", sheetWorth));
+document.querySelectorAll("[data-day]").forEach((b) => {
+  b.addEventListener("click", () => {
+    $("shDate").value = dateOnly(addDays(startOfDay(new Date()), parseInt(b.getAttribute("data-day"), 10)));
+    sheetWorth();
+  });
+});
 $("fx").addEventListener("click", () => {
   currentTab = "setup";
   document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("on", x.getAttribute("data-tab") === "setup"));
