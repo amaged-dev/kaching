@@ -436,6 +436,7 @@ html.locked .app,html.locked .tabs,html.locked .sheet,html.locked .scrim{visibil
 .lockscreen input,.lockform input{flex:1;min-width:0;background:var(--panel-2);border:1px solid var(--hair);border-radius:var(--r-sm);
   padding:12px;font-size:18px;text-align:center;letter-spacing:.3em;font-variant-numeric:tabular-nums}
 .lockscreen .msg{min-height:18px;font-size:12px;color:var(--gold)}
+.lockscreen .btn{flex:none;max-width:280px;width:100%}
 .lockscreen .reset{font-size:11.5px;color:var(--faint);text-decoration:underline;margin-top:8px}
 .lockform{display:flex;gap:8px;margin-top:10px}
 .hidden{display:none !important}
@@ -446,7 +447,7 @@ html.locked .app,html.locked .tabs,html.locked .sheet,html.locked .scrim{visibil
 </style>
 </head>
 <body>
-<script>try{var _k=JSON.parse(localStorage.getItem("kaching.v1")||"{}");if(_k.lock&&_k.lock.on)document.documentElement.classList.add("locked")}catch(e){}</script>
+<script>try{var _k=JSON.parse(localStorage.getItem("kaching.v1")||"{}"),_l=_k.lock||{},_a=(_l.after==null?5:_l.after)*60000,_s=+localStorage.getItem("kaching.seen")||0;if(_l.on&&(_a===0||Date.now()-_s>_a))document.documentElement.classList.add("locked")}catch(e){}</script>
 
 <div class="lockscreen" id="lockScreen" role="dialog" aria-modal="true" aria-label="Ka-Ching is locked">
   <svg class="face" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
@@ -455,7 +456,7 @@ html.locked .app,html.locked .tabs,html.locked .sheet,html.locked .scrim{visibil
   </svg>
   <h2>Ka-Ching is locked</h2>
   <p id="lockLede">Unlock with Face ID.</p>
-  <button class="btn go" id="lockBio" style="max-width:280px;width:100%">Unlock with Face ID</button>
+  <button class="btn go" id="lockBio">Unlock with Face ID</button>
   <div class="pin">
     <input id="lockPin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="PIN" aria-label="PIN">
     <button class="ghost" id="lockPinBtn">Unlock</button>
@@ -742,6 +743,14 @@ html.locked .app,html.locked .tabs,html.locked .sheet,html.locked .scrim{visibil
       </div>
       <div id="lockOnBox" class="hidden">
         <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.55" id="lockStatus"></div>
+        <div class="lab" style="margin-top:14px">Ask again after</div>
+        <div class="chips" id="lockAfter" style="margin-top:8px">
+          <button class="chip" data-after="0">Every time</button>
+          <button class="chip" data-after="1">1m</button>
+          <button class="chip" data-after="5">5m</button>
+          <button class="chip" data-after="15">15m</button>
+          <button class="chip" data-after="60">1h</button>
+        </div>
         <div class="row" style="margin-top:11px;gap:8px">
           <button class="ghost" id="lockNow">Lock now</button>
           <button class="ghost danger" id="lockDisable">Turn off</button>
@@ -867,7 +876,7 @@ const DEFAULTS = {
   deletedIds: [],
   timer: { running: false, startedAt: null, accumulated: 0, sessionStart: null },
   a2hsDismissed: false,
-  lock: { on: false, credId: null, salt: null, pinHash: null },
+  lock: { on: false, credId: null, salt: null, pinHash: null, after: 5 },
   updatedAt: null,
   settingsAt: null,
   sync: { on: false, url: "", key: "", code: "" },
@@ -2134,6 +2143,14 @@ async function fetchRate() {
    ============================================================ */
 const lockState = () => S.lock || DEFAULTS.lock;
 let hiddenAt = 0;
+const lockAfterMs = () => { const a = lockState().after; return (a == null ? 5 : a) * 60000; };
+/** Remembered across app launches: iOS often closes a Home Screen app in the background. */
+function markSeen() { try { localStorage.setItem("kaching.seen", String(Date.now())); } catch (e) {} }
+function lastSeen() { try { return +localStorage.getItem("kaching.seen") || 0; } catch (e) { return 0; } }
+function awayLongEnough(since) {
+  const ms = lockAfterMs();
+  return ms === 0 ? Date.now() - since > 2000 : Date.now() - since > ms;
+}
 
 const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = (str) => {
@@ -2167,6 +2184,7 @@ function showLock() {
 
 function unlock() {
   document.documentElement.classList.remove("locked");
+  markSeen();
   render();
 }
 
@@ -2222,7 +2240,7 @@ async function enableLock() {
     msg.textContent = "Face ID isn't available here, so the lock uses your PIN.";
   }
   const salt = b64u(randomBytes(16));
-  S.lock = { on: true, credId, salt, pinHash: await hashPin(pin, salt) };
+  S.lock = { on: true, credId, salt, pinHash: await hashPin(pin, salt), after: 5 };
   $("lockNewPin").value = "";
   saveLocal(); renderSetup();
   if (credId) toast("Face ID lock is on.");
@@ -2239,9 +2257,11 @@ function renderLockSetup() {
   const L = lockState();
   $("lockOff").classList.toggle("hidden", !!L.on);
   $("lockOnBox").classList.toggle("hidden", !L.on);
-  if (L.on) $("lockStatus").textContent = L.credId
-    ? "On — Face ID when the app opens or after a minute away. Your PIN is the backup."
-    : "On — PIN when the app opens or after a minute away.";
+  const a = L.after == null ? 5 : L.after;
+  const when = a === 0 ? "every time you open the app" : "when you've been away " + (a === 60 ? "an hour" : a + (a === 1 ? " minute" : " minutes"));
+  if (L.on) $("lockStatus").textContent = (L.credId ? "On — Face ID " : "On — PIN ") + when + "." + (L.credId ? " Your PIN is the backup." : "");
+  document.querySelectorAll("#lockAfter [data-after]").forEach((b) =>
+    b.classList.toggle("on", Number(b.getAttribute("data-after")) === a));
 }
 
 function resetDevice() {
@@ -2511,8 +2531,8 @@ $("a2hsX").addEventListener("click", () => {
 
 /* keep the clock honest across lock / unlock / tab switches */
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) { hiddenAt = Date.now(); flushPush(); return; }
-  if (lockState().on && hiddenAt && Date.now() - hiddenAt > 60000) showLock();
+  if (document.hidden) { hiddenAt = Date.now(); markSeen(); flushPush(); return; }
+  if (lockState().on && hiddenAt && awayLongEnough(hiddenAt)) showLock();
   render(); syncNow(true);
 });
 
@@ -2523,6 +2543,14 @@ $("lockReset").addEventListener("click", resetDevice);
 $("lockEnable").addEventListener("click", enableLock);
 $("lockDisable").addEventListener("click", disableLock);
 $("lockNow").addEventListener("click", showLock);
+document.querySelectorAll("#lockAfter [data-after]").forEach((b) => {
+  b.addEventListener("click", () => {
+    S.lock.after = Number(b.getAttribute("data-after"));
+    saveLocal(); renderLockSetup();
+  });
+});
+setInterval(() => { if (!document.hidden && !document.documentElement.classList.contains("locked")) markSeen(); }, 15000);
+window.addEventListener("pagehide", markSeen);
 window.addEventListener("pagehide", flushPush);
 window.addEventListener("pageshow", render);
 window.addEventListener("beforeunload", flushPush);
@@ -2534,7 +2562,8 @@ function loop(ts) {
 }
 
 render();
-if (lockState().on) showLock(); else document.documentElement.classList.remove("locked");
+if (lockState().on && awayLongEnough(lastSeen())) showLock();
+else { document.documentElement.classList.remove("locked"); markSeen(); }
 requestAnimationFrame(loop);
 setInterval(() => { if (S.timer.running) saveLocal(); }, 5000);
 setInterval(() => { if (currentTab === "setup" && syncState === "ok") renderSetup(); }, 30000);
